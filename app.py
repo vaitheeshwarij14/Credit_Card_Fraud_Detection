@@ -1,28 +1,18 @@
 import os
 import pandas as pd
-from kaggle.api.kaggle_api_extended import KaggleApi
 import streamlit as st
+from io import BytesIO
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 
-# Authenticate Kaggle credentials using Streamlit secrets
-def authenticate_kaggle():
-    os.environ['KAGGLE_USERNAME'] = st.secrets["KAGGLE_USERNAME"]
-    os.environ['KAGGLE_KEY'] = st.secrets["KAGGLE_KEY"]
-
-# Download dataset from Kaggle and unzip it
-@st.cache_data
+# Download dataset from Kaggle and validate it
 def download_dataset():
+    # Specify the dataset path
     dataset_path = "creditcard.csv"
-    
-    # Remove existing dataset if found
-    if os.path.exists(dataset_path):
-        os.remove(dataset_path)
-        st.write("Existing dataset found and deleted.")
-    
+
     # Authenticate and download using Kaggle API
     authenticate_kaggle()
     
@@ -33,48 +23,48 @@ def download_dataset():
     # Download the dataset ZIP file
     st.write("Downloading dataset from Kaggle...")
     api.dataset_download_files('mlg-ulb/creditcardfraud', path='./', unzip=True)
-    
-    # Ensure the file was downloaded and unzipped successfully
+
+    # Validate the downloaded file
     if not os.path.exists(dataset_path):
-        st.error(f"Failed to find {dataset_path} after unzipping.")
+        st.error(f"Failed to find {dataset_path} after downloading.")
         return None
-    
+
     # Check the file size to ensure it's not corrupted
     file_size = os.path.getsize(dataset_path)
     if file_size == 0:
         st.error("The downloaded CSV file is empty. Please check the dataset.")
         return None
-    
-    st.write("Dataset downloaded and extracted successfully.")
+
+    st.write("Dataset downloaded and validated successfully.")
+    return dataset_path
 
 # Load the data from the unzipped CSV
-@st.cache_data
 def load_data():
-    dataset_path = "creditcard.csv"
-    
+    dataset_path = "creditcard.csv"  # Change this if your dataset has a different name
+
     # Check if dataset exists, if not, download it
     if not os.path.exists(dataset_path):
-        download_dataset()
-
-    try:
-        # Load the CSV into a pandas DataFrame
-        st.write("Loading the dataset...")
-        data = pd.read_csv(dataset_path)
-        
-        # Check if the dataset is empty
-        if data.empty:
-            st.error("The dataset is empty. Please check the downloaded file.")
+        dataset_path = download_dataset()
+        if dataset_path is None:
             return None
 
-        # Debug: Print the first few rows of the dataset
-        st.write("Dataset preview:")
-        st.write(data.head())
+    # Attempt to read the dataset
+    try:
+        st.write("Loading the dataset...")
+        with open(dataset_path, 'r') as f:
+            # Preview the first few lines of the dataset
+            preview = f.readlines()[:5]
+            st.write("Preview of the dataset:")
+            for line in preview:
+                st.write(line.strip())
+        
+        data = pd.read_csv(dataset_path, encoding='utf-8')
 
         # Check for the 'Class' column
         if 'Class' not in data.columns:
             st.error("The 'Class' column is missing in the dataset. Please check the CSV file.")
             return None
-        
+
         st.write("Dataset loaded successfully.")
         return data
     except pd.errors.EmptyDataError:
