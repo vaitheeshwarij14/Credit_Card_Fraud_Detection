@@ -22,29 +22,32 @@ def authenticate_kaggle():
 # Function to download the dataset from Kaggle
 def download_dataset():
     dataset_path = "creditcard.csv"
-    if not os.path.exists(dataset_path):
-        authenticate_kaggle()
-        kaggle_url = "https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud/download?datasetVersionNumber=1"
+    
+    # Check if file exists and remove it if necessary
+    if os.path.exists(dataset_path):
+        os.remove(dataset_path)
+        st.write("Existing dataset found and deleted.")
+    
+    authenticate_kaggle()
+    kaggle_url = "https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud/download?datasetVersionNumber=1"
 
-        # Send request to Kaggle URL
-        response = requests.get(kaggle_url, stream=True)
+    # Send request to Kaggle URL
+    response = requests.get(kaggle_url, stream=True)
 
-        # Check if the response is valid (status code 200)
-        if response.status_code == 200:
-            try:
-                # Try to extract it as a ZIP file
-                with zipfile.ZipFile(BytesIO(response.content)) as zip_ref:
-                    zip_ref.extractall()
-                    st.write("Dataset downloaded and extracted successfully.")
-            except zipfile.BadZipFile:
-                # If it's not a zip, try to save the CSV directly
-                with open(dataset_path, "wb") as f:
-                    f.write(response.content)
-                st.write("Dataset downloaded successfully (not zipped).")
-        else:
-            st.error("Failed to download the dataset. Please check your Kaggle credentials or internet connection.")
+    # Check if the response is valid (status code 200)
+    if response.status_code == 200:
+        try:
+            # Try to extract it as a ZIP file
+            with zipfile.ZipFile(BytesIO(response.content)) as zip_ref:
+                zip_ref.extractall()
+                st.write("Dataset downloaded and extracted successfully.")
+        except zipfile.BadZipFile:
+            # If it's not a zip, try to save the CSV directly
+            with open(dataset_path, "wb") as f:
+                f.write(response.content)
+            st.write("Dataset downloaded successfully (not zipped).")
     else:
-        st.write("Dataset already exists, skipping download.")
+        st.error("Failed to download the dataset. Please check your Kaggle credentials or internet connection.")
 
 @st.cache_data
 def load_data():
@@ -55,7 +58,15 @@ def load_data():
     if not os.path.exists(dataset_path):
         st.error(f"{dataset_path} not found after download.")
         return None
-    return pd.read_csv(dataset_path)
+    
+    # Read the dataset and handle potential parsing issues
+    try:
+        data = pd.read_csv(dataset_path)
+        st.write("Dataset loaded successfully.")
+        return data
+    except pd.errors.ParserError:
+        st.error(f"Failed to parse {dataset_path}. The file may be corrupted.")
+        return None
 
 # Load data
 data = load_data()
