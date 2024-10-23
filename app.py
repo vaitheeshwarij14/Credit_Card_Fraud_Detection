@@ -6,21 +6,33 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
 import streamlit as st
+import requests
 import zipfile
+from io import BytesIO
 
-# Download the dataset from Kaggle
+# Define your Kaggle credentials (replace with your real credentials)
+KAGGLE_USERNAME = "vaitheeshwari7788"
+KAGGLE_KEY = "cd068da1727ce45ab22f11491192fbfb"
+
+# Configure Kaggle API authentication
+def authenticate_kaggle():
+    os.environ['KAGGLE_USERNAME'] = KAGGLE_USERNAME
+    os.environ['KAGGLE_KEY'] = KAGGLE_KEY
+
+# Function to download the dataset from Kaggle
 def download_dataset():
     if not os.path.exists("creditcard.csv"):
+        authenticate_kaggle()
         # Download dataset using Kaggle API
-        os.system('kaggle datasets download -d mlg-ulb/creditcardfraud')
-
-        # Check if the download was successful
-        if os.path.exists('creditcardfraud.zip'):
-            # Extract the downloaded dataset
-            with zipfile.ZipFile('creditcardfraud.zip', 'r') as zip_ref:
+        kaggle_url = 'https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud/download?datasetVersionNumber=1'
+        
+        response = requests.get(kaggle_url, stream=True)
+        
+        if response.status_code == 200:
+            with zipfile.ZipFile(BytesIO(response.content)) as zip_ref:
                 zip_ref.extractall()
         else:
-            st.error("Failed to download the dataset. Please check your Kaggle API setup.")
+            st.error("Failed to download the dataset. Please check your Kaggle credentials and internet connection.")
 
 @st.cache_data
 def load_data():
