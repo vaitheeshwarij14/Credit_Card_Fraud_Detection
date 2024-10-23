@@ -36,6 +36,17 @@ def load_data():
     try:
         # Load the dataset with handling for bad lines
         data = pd.read_csv('creditcard.csv', on_bad_lines='skip')
+        
+        # Check if the DataFrame is empty
+        if data.empty:
+            st.error("The dataset is empty. Please check the downloaded file.")
+            return None
+        
+        # Display the shape and first few rows of the dataset
+        st.write("Dataset loaded successfully!")
+        st.write(f"Data shape: {data.shape}")
+        st.write(data.head())
+        
         return data
     except Exception as e:
         st.error(f"Failed to parse the CSV file: {e}")
@@ -47,14 +58,10 @@ st.write("Loading the dataset...")
 data = load_data()
 
 if data is not None:
-    # Check if the DataFrame is empty
-    if data.empty:
-        st.error("The dataset is empty. Please check the downloaded file.")
+    # Check if 'Class' column exists
+    if 'Class' not in data.columns:
+        st.error("The 'Class' column is missing in the dataset. Please check the CSV file.")
     else:
-        # Display dataset info
-        st.write(data.info())
-        st.write(data.describe())
-
         # Separate legitimate and fraudulent transactions
         legit = data[data.Class == 0]
         fraud = data[data.Class == 1]
