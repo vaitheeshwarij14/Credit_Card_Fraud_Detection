@@ -1,136 +1,129 @@
 import os
-import numpy as np
 import pandas as pd
+import zipfile
+from kaggle.api.kaggle_api_extended import KaggleApi
+import streamlit as st
+import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
-import streamlit as st
-import requests
-import zipfile
-from io import BytesIO
 
-# Use secrets from Streamlit Cloud for Kaggle credentials
-os.environ['KAGGLE_USERNAME'] = st.secrets["KAGGLE_USERNAME"]
-os.environ['KAGGLE_KEY'] = st.secrets["KAGGLE_KEY"]
-
-# Function to authenticate Kaggle API
+# Authenticate Kaggle credentials using Streamlit secrets
 def authenticate_kaggle():
     os.environ['KAGGLE_USERNAME'] = st.secrets["KAGGLE_USERNAME"]
     os.environ['KAGGLE_KEY'] = st.secrets["KAGGLE_KEY"]
 
-# Function to download the dataset from Kaggle
+# Download dataset from Kaggle and unzip it
+@st.cache_data
 def download_dataset():
     dataset_path = "creditcard.csv"
     
-    # Check if file exists and remove it if necessary
+    # Remove existing dataset if found
     if os.path.exists(dataset_path):
         os.remove(dataset_path)
         st.write("Existing dataset found and deleted.")
     
+    # Authenticate and download using Kaggle API
     authenticate_kaggle()
-    kaggle_url = "https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud/download?datasetVersionNumber=1"
-
-    # Send request to Kaggle URL
-    response = requests.get(kaggle_url, stream=True)
-
-    # Check if the response is valid (status code 200)
-    if response.status_code == 200:
-        try:
-            # Try to extract it as a ZIP file
-            with zipfile.ZipFile(BytesIO(response.content)) as zip_ref:
-                zip_ref.extractall()
-                st.write("Dataset downloaded and extracted successfully.")
-        except zipfile.BadZipFile:
-            # If it's not a zip, try to save the CSV directly
-            with open(dataset_path, "wb") as f:
-                f.write(response.content)
-            st.write("Dataset downloaded successfully (not zipped).")
-    else:
-        st.error("Failed to download the dataset. Please check your Kaggle credentials or internet connection.")
-
+    
+    # Initialize Kaggle API
+    api = KaggleApi()
+    api.authenticate()
+    
+    # Download the dataset ZIP file
+    st.write("Downloading dataset from Kaggle...")
+    api.dataset_download_file('mlg-ulb/creditcardfraud', file_name='creditcard.csv', path='./')
+    
+    # Extract the ZIP file
+    zip_file_path = "creditcardfraud.zip"
+    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+        zip_ref.extractall(".")
+    
+    # Delete the zip file after extraction
+    os.remove(zip_file_path)
+    
+    st.write("Dataset downloaded and extracted successfully.")
+    
+# Load the data from the unzipped CSV
 @st.cache_data
 def load_data():
-    download_dataset()
-    
-    # Load the dataset
     dataset_path = "creditcard.csv"
-    if not os.path.exists(dataset_path):
-        st.error(f"{dataset_path} not found after download.")
-        return None
     
-    # Read the dataset and handle potential parsing issues
+    # Check if dataset exists, if not, download it
+    if not os.path.exists(dataset_path):
+        download_dataset()
+
     try:
-        data = pd.read_csv(dataset_path)
-        st.write("Dataset loaded successfully.")
-        return data
+        # Load the CSV into a pandas DataFrame
+        return pd.read_csv(dataset_path)
     except pd.errors.ParserError:
-        st.error(f"Failed to parse {dataset_path}. The file may be corrupted.")
+        st.error("Failed to parse the CSV file. The file may be corrupted.")
         return None
 
-# Load data
-data = load_data()
+# Main Streamlit app logic
+def main():
+    st.title("Credit Card Fraud Detection Model")
+    
+    # Load data
+    data = load_data()
 
-# Ensure data is loaded
-if data is not None:
-    # Ensure the dataset contains the 'Class' column
-    if 'Class' not in data.columns:
-        st.error("'Class' column not found in the dataset. Please check the data.")
-    else:
-        # Separate legitimate and fraudulent transactions
-        legit = data[data['Class'] == 0]
-        fraud = data[data['Class'] == 1]
+    if data is None:
+        st.error("Error loading data. Please try again.")
+        return
+    
+    # Separate legitimate and fraudulent transactions
+    legit = data[data.Class == 0]
+    fraud = data[data.Class == 1]
+    
+    # Undersample legitimate transactions to balance the classes
+    legit_sample = legit.sample(n=len(fraud), random_state=2)
+    balanced_data = pd.concat([legit_sample, fraud], axis=0)
 
-        # Undersample legitimate transactions to balance the classes
-        legit_sample = legit.sample(n=len(fraud), random_state=2)
-        data = pd.concat([legit_sample, fraud], axis=0)
+    # Split data into features and target
+    X = balanced_data.drop(columns="Class", axis=1)
+    y = balanced_data["Class"]
+    
+    # Split data into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=2)
 
-        # Split data into training and testing sets
-        X = data.drop(columns="Class", axis=1)
-        y = data["Class"]
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=2)
+    # Scale the data
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
 
-        # Scale the data
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
+    # Train logistic regression model
+    model = LogisticRegression(max_iter=1000)
+    model.fit(X_train, y_train)
 
-        # Train logistic regression model with increased max_iter
-        model = LogisticRegression(max_iter=1000)
-        model.fit(X_train, y_train)
+    # Evaluate model performance
+    train_acc = accuracy_score(model.predict(X_train), y_train)
+    test_acc = accuracy_score(model.predict(X_test), y_test)
 
-        # Evaluate model performance
-        train_acc = accuracy_score(model.predict(X_train), y_train)
-        test_acc = accuracy_score(model.predict(X_test), y_test)
+    st.write(f"Model Training Accuracy: {train_acc:.2f}")
+    st.write(f"Model Testing Accuracy: {test_acc:.2f}")
+    
+    # Input section for user to test the model
+    st.write("Enter the following features to check if the transaction is legitimate or fraudulent:")
+    input_df = st.text_input('Input all features as comma-separated values')
 
-        # Create Streamlit app
-        st.title("Credit Card Fraud Detection Model")
-        st.write(f"Model Training Accuracy: {train_acc:.2f}")
-        st.write(f"Model Testing Accuracy: {test_acc:.2f}")
-        st.write("Enter the following features to check if the transaction is legitimate or fraudulent:")
+    submit = st.button("Submit")
 
-        # Create input fields for user to enter feature values
-        input_df = st.text_input('Input All features as comma-separated values')
+    if submit:
+        try:
+            input_df_lst = input_df.split(',')
+            features = np.array(input_df_lst, dtype=np.float64).reshape(1, -1)
+            features_scaled = scaler.transform(features)
+            
+            prediction = model.predict(features_scaled)
 
-        # Create a button to submit input and get prediction
-        submit = st.button("Submit")
+            if prediction[0] == 0:
+                st.write("Legitimate transaction")
+            else:
+                st.write("Fraudulent transaction")
+        except ValueError:
+            st.write("Please enter valid numerical feature values.")
 
-        if submit:
-            try:
-                # Get input feature values
-                input_df_lst = input_df.split(',')
-                features = np.array(input_df_lst, dtype=np.float64)
-
-                # Scale the input features before making predictions
-                features = scaler.transform([features])
-
-                # Make prediction
-                prediction = model.predict(features)
-
-                # Display result
-                if prediction[0] == 0:
-                    st.write("Legitimate transaction")
-                else:
-                    st.write("Fraudulent transaction")
-            except ValueError:
-                st.write("Please enter valid numerical feature values.")
+# Run the main app
+if __name__ == "__main__":
+    main()
