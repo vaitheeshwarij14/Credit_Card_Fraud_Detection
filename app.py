@@ -34,8 +34,8 @@ def load_data():
         download_dataset()
 
     try:
-        # Load the dataset
-        data = pd.read_csv('creditcard.csv', error_bad_lines=False, warn_bad_lines=True)
+        # Load the dataset with handling for bad lines
+        data = pd.read_csv('creditcard.csv', on_bad_lines='skip')
         return data
     except Exception as e:
         st.error(f"Failed to parse the CSV file: {e}")
@@ -85,7 +85,7 @@ if data is not None:
         st.write(f"Model Testing Accuracy: {test_acc:.2f}")
 
         # Create input fields for user to enter feature values
-        input_df = st.text_input('Input All features as comma-separated values')
+        input_df = st.text_input('Input all features as comma-separated values')
 
         # Create a button to submit input and get prediction
         submit = st.button("Submit")
