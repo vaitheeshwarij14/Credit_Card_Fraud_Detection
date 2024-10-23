@@ -33,18 +33,15 @@ def download_dataset():
     
     # Download the dataset ZIP file
     st.write("Downloading dataset from Kaggle...")
-    api.dataset_download_file('mlg-ulb/creditcardfraud', file_name='creditcard.csv', path='./')
+    api.dataset_download_files('mlg-ulb/creditcardfraud', path='./', unzip=True)
     
-    # Extract the ZIP file
-    zip_file_path = "creditcardfraud.zip"
-    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-        zip_ref.extractall(".")
-    
-    # Delete the zip file after extraction
-    os.remove(zip_file_path)
+    # After unzipping, make sure the file exists
+    if not os.path.exists(dataset_path):
+        st.error(f"Failed to find {dataset_path} after unzipping.")
+        return None
     
     st.write("Dataset downloaded and extracted successfully.")
-    
+
 # Load the data from the unzipped CSV
 @st.cache_data
 def load_data():
@@ -56,9 +53,18 @@ def load_data():
 
     try:
         # Load the CSV into a pandas DataFrame
-        return pd.read_csv(dataset_path)
+        st.write("Loading the dataset...")
+        data = pd.read_csv(dataset_path)
+        st.write("Dataset loaded successfully.")
+        return data
+    except pd.errors.EmptyDataError:
+        st.error("The CSV file is empty. Please check the dataset.")
+        return None
     except pd.errors.ParserError:
         st.error("Failed to parse the CSV file. The file may be corrupted.")
+        return None
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {e}")
         return None
 
 # Main Streamlit app logic
@@ -71,6 +77,9 @@ def main():
     if data is None:
         st.error("Error loading data. Please try again.")
         return
+    
+    st.write("Data Summary:")
+    st.write(data.describe())
     
     # Separate legitimate and fraudulent transactions
     legit = data[data.Class == 0]
