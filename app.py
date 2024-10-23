@@ -1,8 +1,10 @@
 import os
 import pandas as pd
 import zipfile
+import requests
 from kaggle.api.kaggle_api_extended import KaggleApi
 import streamlit as st
+from io import BytesIO
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
@@ -35,9 +37,15 @@ def download_dataset():
     st.write("Downloading dataset from Kaggle...")
     api.dataset_download_files('mlg-ulb/creditcardfraud', path='./', unzip=True)
     
-    # After unzipping, make sure the file exists
+    # Ensure the file was downloaded and unzipped successfully
     if not os.path.exists(dataset_path):
         st.error(f"Failed to find {dataset_path} after unzipping.")
+        return None
+    
+    # Check the file size to ensure it's not corrupted
+    file_size = os.path.getsize(dataset_path)
+    if file_size == 0:
+        st.error("The downloaded CSV file is empty. Please check the dataset.")
         return None
     
     st.write("Dataset downloaded and extracted successfully.")
@@ -55,6 +63,12 @@ def load_data():
         # Load the CSV into a pandas DataFrame
         st.write("Loading the dataset...")
         data = pd.read_csv(dataset_path)
+        
+        # Check if the dataset is empty or corrupted
+        if data.empty:
+            st.error("The dataset is empty. Please check the downloaded file.")
+            return None
+        
         st.write("Dataset loaded successfully.")
         return data
     except pd.errors.EmptyDataError:
