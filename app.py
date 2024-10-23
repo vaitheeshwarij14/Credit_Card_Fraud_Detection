@@ -1,10 +1,7 @@
 import os
 import pandas as pd
-import zipfile
-import requests
 from kaggle.api.kaggle_api_extended import KaggleApi
 import streamlit as st
-from io import BytesIO
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
@@ -64,10 +61,14 @@ def load_data():
         st.write("Loading the dataset...")
         data = pd.read_csv(dataset_path)
         
-        # Check if the dataset is empty or corrupted
+        # Check if the dataset is empty
         if data.empty:
             st.error("The dataset is empty. Please check the downloaded file.")
             return None
+
+        # Debug: Print the first few rows of the dataset
+        st.write("Dataset preview:")
+        st.write(data.head())
 
         # Check for the 'Class' column
         if 'Class' not in data.columns:
