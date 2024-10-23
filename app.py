@@ -8,11 +8,20 @@ from sklearn.metrics import accuracy_score
 
 # Function to download data from Google Drive
 def download_file_from_drive(drive_url):
+    # Extract the file ID from the Google Drive URL
     file_id = drive_url.split('/')[-2]
-    download_url = f"https://drive.google.com/uc?id={file_id}"
+    # Create the download URL
+    download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
     
-    response = requests.get(download_url)
+    # Send a GET request to the download URL
+    response = requests.get(download_url, allow_redirects=True)
+    
+    # Check if we need to confirm the download
+    if 'confirm' in response.url:
+        response = requests.get(download_url, params={'confirm': 't'}, allow_redirects=True)
+
     if response.status_code == 200:
+        # Save the content to a temporary CSV file
         with open('creditcard.csv', 'wb') as f:
             f.write(response.content)
         return pd.read_csv('creditcard.csv')
