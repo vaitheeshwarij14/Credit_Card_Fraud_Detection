@@ -1,33 +1,39 @@
 import numpy as np
 import pandas as pd
+import requests
+import streamlit as st
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
-import streamlit as st
-import gdown
+import os
 
-# Function to load data from Google Drive
-def load_data_from_drive(drive_url):
+# Function to download data from Google Drive
+def download_file_from_drive(drive_url):
     # Extract the file ID from the Google Drive URL
     file_id = drive_url.split('/')[-2]
-    # Construct the gdown URL
-    gdown_url = f"https://drive.google.com/file/d/1cD78QR_ZJge8XPfrMCYs4rI3s_aOfnLl/view?usp=drive_link"
-    # Download the CSV file
-    data = pd.read_csv(gdown_url)
-    return data
+    # Create the download URL
+    download_url = f"https://drive.google.com/uc?id={file_id}"
+    
+    # Send a GET request to the download URL
+    response = requests.get(download_url)
+    if response.status_code == 200:
+        # Save the content to a temporary CSV file
+        with open('creditcard.csv', 'wb') as f:
+            f.write(response.content)
+        return pd.read_csv('creditcard.csv')
+    else:
+        raise Exception("Failed to download file")
 
 # Load data from Google Drive link
-drive_link = st.text_input("Enter your Google Drive CSV file link:")
+drive_link = st.text_input("Enter your Google Drive CSV file link:", 
+                            value="https://drive.google.com/file/d/1cD78QR_ZJge8XPfrMCYs4rI3s_aOfnLl/view?usp=drive_link")
 if drive_link:
     try:
-        data = load_data_from_drive(drive_link)
+        data = download_file_from_drive(drive_link)
         st.write("Data loaded successfully!")
     except Exception as e:
         st.error(f"Error loading data: {e}")
         st.stop()
-else:
-    st.warning("Please enter a valid Google Drive link to load the dataset.")
-    st.stop()
 
 # Separate legitimate and fraudulent transactions
 legit = data[data.Class == 0]
@@ -43,7 +49,7 @@ y = data["Class"]
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=2)
 
 # Train logistic regression model
-model = LogisticRegression()
+model = LogisticRegression(max_iter=1000)
 model.fit(X_train, y_train)
 
 # Evaluate model performance
