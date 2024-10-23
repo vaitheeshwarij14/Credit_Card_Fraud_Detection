@@ -35,20 +35,35 @@ def download_dataset():
     
     # Download the dataset ZIP file
     st.write("Downloading dataset from Kaggle...")
-    api.dataset_download_files('mlg-ulb/creditcardfraud', path='./', unzip=True)
+    api.dataset_download_files('mlg-ulb/creditcardfraud', path='./', unzip=False)
     
-    # Ensure the file was downloaded and unzipped successfully
+    # Unzipping the downloaded file
+    zip_file_path = './creditcardfraud.zip'
+    if os.path.exists(zip_file_path):
+        try:
+            with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+                zip_ref.extractall('./')
+            st.write("Dataset unzipped successfully.")
+        except zipfile.BadZipFile:
+            st.error("The zip file is corrupted.")
+            return None
+    else:
+        st.error("Failed to download the zip file.")
+        return None
+
+    # Ensure the file was extracted successfully
     if not os.path.exists(dataset_path):
-        st.error(f"Failed to find {dataset_path} after unzipping.")
+        st.error(f"Failed to find {dataset_path} after extraction.")
         return None
     
     # Check the file size to ensure it's not corrupted
     file_size = os.path.getsize(dataset_path)
     if file_size == 0:
-        st.error("The downloaded CSV file is empty. Please check the dataset.")
+        st.error("The extracted CSV file is empty. Please check the dataset.")
         return None
     
     st.write("Dataset downloaded and extracted successfully.")
+    return dataset_path
 
 # Load the data from the unzipped CSV
 @st.cache_data
@@ -57,7 +72,9 @@ def load_data():
     
     # Check if dataset exists, if not, download it
     if not os.path.exists(dataset_path):
-        download_dataset()
+        dataset_path = download_dataset()
+        if not dataset_path:
+            return None
 
     try:
         # Load the CSV into a pandas DataFrame
