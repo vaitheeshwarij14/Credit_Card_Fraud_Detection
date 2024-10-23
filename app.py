@@ -5,19 +5,14 @@ import streamlit as st
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
-import os
 
 # Function to download data from Google Drive
 def download_file_from_drive(drive_url):
-    # Extract the file ID from the Google Drive URL
     file_id = drive_url.split('/')[-2]
-    # Create the download URL
     download_url = f"https://drive.google.com/uc?id={file_id}"
     
-    # Send a GET request to the download URL
     response = requests.get(download_url)
     if response.status_code == 200:
-        # Save the content to a temporary CSV file
         with open('creditcard.csv', 'wb') as f:
             f.write(response.content)
         return pd.read_csv('creditcard.csv')
@@ -31,9 +26,17 @@ if drive_link:
     try:
         data = download_file_from_drive(drive_link)
         st.write("Data loaded successfully!")
+        st.write("First few rows of the data:")
+        st.dataframe(data.head())  # Display first few rows of the data
+        st.write("Column names:", data.columns.tolist())  # Show the column names
     except Exception as e:
         st.error(f"Error loading data: {e}")
         st.stop()
+
+# Check if the Class column exists
+if 'Class' not in data.columns:
+    st.error("The 'Class' column is missing from the dataset.")
+    st.stop()
 
 # Separate legitimate and fraudulent transactions
 legit = data[data.Class == 0]
