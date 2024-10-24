@@ -1,6 +1,6 @@
+streamlit
 pandas
 numpy
 scikit-learn
-streamlit
-kaggle
-requests
+gdown
+
