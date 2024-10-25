@@ -1,2 +1,2 @@
 # Credit-Card-Fraudulant-Transaction-Detection-Model
-https://credit-card-fraud-detection-1-hasi.onrender.com/
+https://credit-card-fraud-detection-azb1.onrender.com/
